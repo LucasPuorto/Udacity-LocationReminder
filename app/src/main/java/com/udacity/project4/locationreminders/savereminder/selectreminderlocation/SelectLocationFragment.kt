@@ -122,7 +122,6 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
     @SuppressLint("MissingPermission")
     override fun onMapReady(googleMap: GoogleMap) {
         map = googleMap
-        Log.d("abacaxi", "onMapReady")
         val latitude = -23.994999483822994
         val longitude = -46.25498303770009
         val latLong = LatLng(latitude, longitude)
