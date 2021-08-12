@@ -69,9 +69,7 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         mapFragment.getMapAsync(this)
 
         binding.mbtSaveLocation.setOnClickListener {
-            if (latitude != 0.0 && longitude != 0.0 && reminderSelectedLocationStr.isNotBlank() && selectedPOI != null) {
-                onLocationSelected()
-            }
+            onLocationSelected()
         }
         return binding.root
     }
@@ -121,39 +119,96 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         }
     }
 
+    @SuppressLint("MissingPermission")
     override fun onMapReady(googleMap: GoogleMap) {
         map = googleMap
-
+        Log.d("abacaxi", "onMapReady")
         val latitude = -23.994999483822994
         val longitude = -46.25498303770009
         val latLong = LatLng(latitude, longitude)
         val zoomLevel = 15F
-        map.moveCamera(CameraUpdateFactory.newLatLngZoom(latLong, zoomLevel))
-        setPoiClick(map)
-        setMapStyle(map)
-        enableMyLocation()
+
+        if (isLocationEnabled()) {
+            val locationProviderClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+            val lastLocation = locationProviderClient.lastLocation
+            lastLocation.addOnCompleteListener(requireActivity()) { task ->
+                if (task.isSuccessful) {
+                    // Set the map's camera position to the current location of the device.
+                    val lastKnownLocation = task.result
+                    if (lastKnownLocation != null) {
+                        map.moveCamera(
+                            CameraUpdateFactory.newLatLngZoom(
+                                LatLng(
+                                    lastKnownLocation.latitude,
+                                    lastKnownLocation.longitude
+                                ), 15f
+                            )
+                        )
+                    }
+                } else {
+                    map.moveCamera(
+                        CameraUpdateFactory
+                            .newLatLngZoom(latLong, 15f)
+                    )
+                    map.uiSettings.isMyLocationButtonEnabled = false
+                }
+            }
+
+        } else {
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLong, zoomLevel))
+        }
+
+        onTouch(googleMap)
+        onLongTouch(googleMap)
+        setMapStyle(googleMap)
     }
 
-    private fun setPoiClick(map: GoogleMap) {
-        map.setOnPoiClickListener { poi ->
-            map.clear()
-            val poiMarker = map.addMarker(
+    private fun isLocationEnabled(): Boolean =
+        if (ActivityCompat.checkSelfPermission(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+            && ActivityCompat.checkSelfPermission(requireActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            false
+        } else {
+            map.isMyLocationEnabled = true
+            true
+        }
+
+    private fun onTouch(googleMap: GoogleMap) {
+        googleMap.setOnPoiClickListener { poi ->
+            /*If the user changes the decision, this line clears the map.*/
+            googleMap.clear()
+            latitude = poi.latLng.latitude
+            longitude = poi.latLng.longitude
+            reminderSelectedLocationStr = poi.name
+
+            googleMap.addMarker(
                 MarkerOptions()
                     .position(poi.latLng)
                     .title(poi.name)
             )
-            poiMarker?.showInfoWindow()
-            reminderSelectedLocationStr = poi.name
-            latitude = poi.latLng.latitude
-            longitude = poi.latLng.longitude
-            selectedPOI = poi
         }
     }
 
-    private fun setMapStyle(map: GoogleMap) {
+    private fun onLongTouch(googleMap: GoogleMap) {
+        googleMap.setOnMapLongClickListener { latLng ->
+            /*If the user changes the decision, this line clears the map.*/
+            googleMap.clear()
+            latitude = latLng.latitude
+            longitude = latLng.longitude
+            reminderSelectedLocationStr = "Custom location"
+
+            googleMap.addMarker(
+                MarkerOptions()
+                    .position(latLng)
+                    .title("Custom location")
+            )
+        }
+    }
+
+    private fun setMapStyle(googleMap: GoogleMap) {
         try {
             // Customize the styling of the base map using a JSON object defined in a raw resource file.
-            val success = map.setMapStyle(
+            val success = googleMap.setMapStyle(
                 MapStyleOptions.loadRawResourceStyle(
                     requireContext(),
                     R.raw.map_style
@@ -200,7 +255,6 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         _viewModel.latitude.value = latitude
         _viewModel.longitude.value = longitude
         _viewModel.reminderSelectedLocationStr.value = reminderSelectedLocationStr
-        _viewModel.selectedPOI.value = selectedPOI
         _viewModel.navigationCommand.value = NavigationCommand.Back
     }
 }
