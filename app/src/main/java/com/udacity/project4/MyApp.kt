@@ -2,11 +2,13 @@ package com.udacity.project4
 
 import android.app.Application
 import com.udacity.project4.authentication.AuthenticationViewModel
+import com.udacity.project4.locationreminders.ReminderViewModel
 import com.udacity.project4.locationreminders.data.ReminderDataSource
 import com.udacity.project4.locationreminders.data.local.LocalDB
 import com.udacity.project4.locationreminders.data.local.RemindersLocalRepository
 import com.udacity.project4.locationreminders.reminderslist.RemindersListViewModel
 import com.udacity.project4.locationreminders.savereminder.SaveReminderViewModel
+import com.udacity.project4.utils.createChannel
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.core.context.startKoin
@@ -23,6 +25,7 @@ class MyApp : Application() {
         val myModule = module {
             //Declare a ViewModel - be later inject into Fragment with dedicated injector using by viewModel()
             viewModel { AuthenticationViewModel() }
+            viewModel { ReminderViewModel() }
             viewModel {
                 RemindersListViewModel(
                     get(),
@@ -45,5 +48,7 @@ class MyApp : Application() {
             androidContext(this@MyApp)
             modules(listOf(myModule))
         }
+
+        createChannel(this, getString(R.string.channel_id), getString(R.string.channel_name), getString(R.string.channel_description))
     }
 }
