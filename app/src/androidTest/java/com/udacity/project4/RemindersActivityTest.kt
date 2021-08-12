@@ -1,16 +1,41 @@
 package com.udacity.project4
 
 import android.app.Application
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider.getApplicationContext
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.IdlingRegistry
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
+import androidx.test.espresso.action.ViewActions.longClick
+import androidx.test.espresso.action.ViewActions.typeText
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.withId
+import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.rule.ActivityTestRule
+import androidx.test.rule.GrantPermissionRule
+import com.google.firebase.auth.FirebaseAuth
+import com.udacity.project4.authentication.AuthenticationViewModel
+import com.udacity.project4.locationreminders.ReminderViewModel
+import com.udacity.project4.locationreminders.RemindersActivity
 import com.udacity.project4.locationreminders.data.ReminderDataSource
 import com.udacity.project4.locationreminders.data.local.LocalDB
 import com.udacity.project4.locationreminders.data.local.RemindersLocalRepository
 import com.udacity.project4.locationreminders.reminderslist.RemindersListViewModel
 import com.udacity.project4.locationreminders.savereminder.SaveReminderViewModel
+import com.udacity.project4.util.DataBindingIdlingResource
+import com.udacity.project4.util.monitorActivity
+import com.udacity.project4.utils.EspressoIdlingResource
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.core.context.startKoin
@@ -22,11 +47,26 @@ import org.koin.test.get
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 //END TO END test to black box test the app
-class RemindersActivityTest :
-    AutoCloseKoinTest() {// Extended Koin Test - embed autoclose @after method to close Koin after every test
+class RemindersActivityTest : AutoCloseKoinTest() {
+
+    // Extended Koin Test - embed autoclose @after method to close Koin after every test
 
     private lateinit var repository: ReminderDataSource
     private lateinit var appContext: Application
+    private lateinit var authentication: FirebaseAuth
+    private val dataBindingIdlingResource = DataBindingIdlingResource()
+
+    @get:Rule
+    val instantTaskExecutorRule = InstantTaskExecutorRule()
+
+    @get:Rule
+    val activityTestRule = ActivityTestRule(RemindersActivity::class.java)
+
+    @get:Rule
+    val fineLocationPermission: GrantPermissionRule = GrantPermissionRule.grant(android.Manifest.permission.ACCESS_FINE_LOCATION)
+
+    @get:Rule
+    val backgroundLocationPermission: GrantPermissionRule = GrantPermissionRule.grant(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
 
     /**
      * As we use Koin as a Service Locator Library to develop our code, we'll also use Koin to test our code.
@@ -42,6 +82,8 @@ class RemindersActivityTest :
                     appContext,
                     get() as ReminderDataSource
                 )
+                ReminderViewModel()
+                AuthenticationViewModel()
             }
             single {
                 SaveReminderViewModel(
@@ -65,7 +107,42 @@ class RemindersActivityTest :
         }
     }
 
+    @Before
+    fun setupActivity() {
+        IdlingRegistry.getInstance().register(EspressoIdlingResource.countingIdlingResource)
+        IdlingRegistry.getInstance().register(dataBindingIdlingResource)
+        authentication = FirebaseAuth.getInstance()
+        authentication.signOut()
+        runBlocking {
+            authentication.signInWithEmailAndPassword("lucaspuoto@gmail.com", "123456")
+            //Added this line, Otherwise, application is checking login screen.
+            delay(2000)
+        }
+    }
 
-//    TODO: add End to End testing to the app
+    @After
+    fun removeActivity() {
+        IdlingRegistry.getInstance().unregister(EspressoIdlingResource.countingIdlingResource)
+        IdlingRegistry.getInstance().unregister(dataBindingIdlingResource)
+    }
 
+    @Test
+    fun remindersActivity_loggedUserFlowCheck() {
+        val activityScenario = ActivityScenario.launch(RemindersActivity::class.java)
+        dataBindingIdlingResource.monitorActivity(activityScenario)
+
+        onView(withId(R.id.noDataTextView)).check(matches(withText("No Data")))
+        onView(withId(R.id.addReminderFAB)).perform(click())
+        onView(withId(R.id.selectLocation)).check(matches(isDisplayed()))
+        onView(withId(R.id.selectLocation)).perform(click())
+        onView(withId(R.id.mbt_save_location)).check(matches(isDisplayed()))
+        onView(withId(R.id.map)).perform(longClick())
+        onView(withId(R.id.mbt_save_location)).perform(click())
+        onView(withId(R.id.reminderTitle)).check(matches(isDisplayed()))
+        onView(withId(R.id.reminderTitle)).perform(typeText("Sample Reminder Title"), closeSoftKeyboard())
+        onView(withId(R.id.reminderDescription)).perform(typeText("Sample Reminder Description"), closeSoftKeyboard())
+        onView(withId(R.id.saveReminder)).perform(click())
+
+        activityScenario.close()
+    }
 }
