@@ -6,11 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.PointOfInterest
 import com.udacity.project4.R
 import com.udacity.project4.base.BaseViewModel
-import com.udacity.project4.base.NavigationCommand
 import com.udacity.project4.locationreminders.data.ReminderDataSource
 import com.udacity.project4.locationreminders.data.dto.ReminderDTO
 import com.udacity.project4.locationreminders.reminderslist.ReminderDataItem
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class SaveReminderViewModel(
     val app: Application,
@@ -20,9 +20,10 @@ class SaveReminderViewModel(
     val reminderTitle = MutableLiveData<String>()
     val reminderDescription = MutableLiveData<String>()
     val reminderSelectedLocationStr = MutableLiveData<String>()
-    val selectedPOI = MutableLiveData<PointOfInterest>()
     val latitude = MutableLiveData<Double>()
     val longitude = MutableLiveData<Double>()
+    val currentId = MutableLiveData<String>()
+    private val selectedPOI = MutableLiveData<PointOfInterest>()
 
     /**
      * Clear the live data objects to start fresh next time the view model gets called
@@ -34,6 +35,7 @@ class SaveReminderViewModel(
         selectedPOI.value = null
         latitude.value = null
         longitude.value = null
+        currentId.value = null
     }
 
     /**
@@ -48,7 +50,7 @@ class SaveReminderViewModel(
     /**
      * Save the reminder to the data source
      */
-    fun saveReminder(reminderData: ReminderDataItem) {
+    private fun saveReminder(reminderData: ReminderDataItem) {
         showLoading.value = true
         viewModelScope.launch {
             dataSource.saveReminder(
@@ -61,9 +63,10 @@ class SaveReminderViewModel(
                     reminderData.id
                 )
             )
+
+            currentId.value = reminderData.id
             showLoading.value = false
             showToast.value = app.getString(R.string.reminder_saved)
-            navigationCommand.value = NavigationCommand.Back
         }
     }
 
@@ -86,5 +89,22 @@ class SaveReminderViewModel(
             return false
         }
         return true
+    }
+
+    fun getReminderObject(): ReminderDataItem {
+        val title = reminderTitle.value
+        val description = reminderDescription.value
+        val location = reminderSelectedLocationStr.value
+        val latitude = latitude.value
+        val longitude = longitude.value
+
+        return ReminderDataItem(
+            title,
+            description,
+            location,
+            latitude,
+            longitude,
+            currentId.value ?: UUID.randomUUID().toString()
+        )
     }
 }
