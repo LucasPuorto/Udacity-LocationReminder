@@ -41,6 +41,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".locationreminders.RemindersActivity" />
+        <activity android:name=".locationreminders.ReminderDescriptionActivity" />
 
         <receiver
             android:name=".locationreminders.geofence.GeofenceBroadcastReceiver"
