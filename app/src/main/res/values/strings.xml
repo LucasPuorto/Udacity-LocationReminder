@@ -43,6 +43,7 @@
     <string name="geofence_too_many_pending_intents">You have provided too many PendingIntents to the addGeofences() call.</string>
     <string name="error_adding_geofence">Error Happened, Can\'t Add Geofence</string>
     <string name="no_geofence_data">Geofence data could not found.</string>
+    <string name="permission_required">permission required</string>
 
     <!-- Notification -->
     <string name="channel_id">GeofenceReminderChannel</string>

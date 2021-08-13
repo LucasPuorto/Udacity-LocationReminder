@@ -1,8 +1,6 @@
 package com.udacity.project4.locationreminders.savereminder.selectreminderlocation
 
-import android.Manifest
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.os.Bundle
 import android.util.Log
@@ -12,8 +10,8 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.app.ActivityCompat
 import androidx.databinding.DataBindingUtil
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -94,39 +92,37 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
     @SuppressLint("MissingPermission")
     override fun onMapReady(googleMap: GoogleMap) {
         map = googleMap
-        val latitude = -23.994999483822994
-        val longitude = -46.25498303770009
+        val latitude = -23.603174
+        val longitude = -46.742012
         val latLong = LatLng(latitude, longitude)
         val zoomLevel = 15F
 
-        if (isLocationEnabled()) {
-            val locationProviderClient = LocationServices.getFusedLocationProviderClient(requireActivity())
-            val lastLocation = locationProviderClient.lastLocation
-            lastLocation.addOnCompleteListener(requireActivity()) { task ->
-                if (task.isSuccessful) {
-                    // Set the map's camera position to the current location of the device.
-                    val lastKnownLocation = task.result
-                    if (lastKnownLocation != null) {
-                        map.moveCamera(
-                            CameraUpdateFactory.newLatLngZoom(
-                                LatLng(
-                                    lastKnownLocation.latitude,
-                                    lastKnownLocation.longitude
-                                ), 15f
-                            )
+        val fusedLocationProviderClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+
+        fusedLocationProviderClient.lastLocation.addOnCompleteListener {
+            if (it.isSuccessful) {
+                val location = it.result
+                if (location != null) {
+                    map.moveCamera(
+                        CameraUpdateFactory.newLatLngZoom(
+                            LatLng(location.latitude, location.longitude),
+                            zoomLevel
                         )
-                    }
+                    )
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(latLong)
+                            .title("Your location")
+                    )
                 } else {
                     map.moveCamera(
                         CameraUpdateFactory
-                            .newLatLngZoom(latLong, 15f)
+                            .newLatLngZoom(latLong, zoomLevel)
                     )
-                    map.uiSettings.isMyLocationButtonEnabled = false
                 }
+            } else {
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLong, zoomLevel))
             }
-
-        } else {
-            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLong, zoomLevel))
         }
 
         onTouch(googleMap)
@@ -134,20 +130,11 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         setMapStyle(googleMap)
     }
 
-    private fun isLocationEnabled(): Boolean =
-        if (ActivityCompat.checkSelfPermission(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-            && ActivityCompat.checkSelfPermission(requireActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
-        ) {
-            false
-        } else {
-            map.isMyLocationEnabled = true
-            true
-        }
-
     private fun onTouch(googleMap: GoogleMap) {
         googleMap.setOnPoiClickListener { poi ->
             /*If the user changes the decision, this line clears the map.*/
             googleMap.clear()
+            selectedPOI = poi
             latitude = poi.latLng.latitude
             longitude = poi.latLng.longitude
             reminderSelectedLocationStr = poi.name
@@ -170,7 +157,7 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
             googleMap.addMarker(
                 MarkerOptions()
-                    .position(latLng)
+                    .position(LatLng(latitude, longitude))
                     .title("Custom location")
             )
         }
@@ -197,6 +184,7 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         _viewModel.latitude.value = latitude
         _viewModel.longitude.value = longitude
         _viewModel.reminderSelectedLocationStr.value = reminderSelectedLocationStr
+        _viewModel.selectedPOI.value = selectedPOI
         _viewModel.navigationCommand.value = NavigationCommand.Back
     }
 }

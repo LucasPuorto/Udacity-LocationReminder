@@ -6,69 +6,38 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.PointOfInterest
 import com.udacity.project4.R
 import com.udacity.project4.base.BaseViewModel
+import com.udacity.project4.base.NavigationCommand
 import com.udacity.project4.locationreminders.data.ReminderDataSource
 import com.udacity.project4.locationreminders.data.dto.ReminderDTO
 import com.udacity.project4.locationreminders.reminderslist.ReminderDataItem
+import com.udacity.project4.utils.SingleLiveEvent
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 class SaveReminderViewModel(
     val app: Application,
     val dataSource: ReminderDataSource
 ) : BaseViewModel(app) {
 
+    val addGeoFencingRequest = SingleLiveEvent<ReminderDataItem>()
+
+    val selectedPOI = MutableLiveData<PointOfInterest>()
     val reminderTitle = MutableLiveData<String>()
     val reminderDescription = MutableLiveData<String>()
     val reminderSelectedLocationStr = MutableLiveData<String>()
     val latitude = MutableLiveData<Double>()
     val longitude = MutableLiveData<Double>()
-    val currentId = MutableLiveData<String>()
-    private val selectedPOI = MutableLiveData<PointOfInterest>()
 
-    /**
-     * Clear the live data objects to start fresh next time the view model gets called
-     */
-    fun onClear() {
-        reminderTitle.value = null
-        reminderDescription.value = null
-        reminderSelectedLocationStr.value = null
-        selectedPOI.value = null
-        latitude.value = null
-        longitude.value = null
-        currentId.value = null
-    }
 
-    /**
-     * Validate the entered data then saves the reminder data to the DataSource
-     */
-    fun validateAndSaveReminder(reminderData: ReminderDataItem) {
-        if (validateEnteredData(reminderData)) {
-            saveReminder(reminderData)
+    val reminder: ReminderDataItem
+        get() {
+            val title = reminderTitle.value
+            val description = reminderDescription.value
+            val location = reminderSelectedLocationStr.value
+            val latitude = latitude.value
+            val longitude = longitude.value
+
+            return ReminderDataItem(title, description, location, latitude, longitude)
         }
-    }
-
-    /**
-     * Save the reminder to the data source
-     */
-    private fun saveReminder(reminderData: ReminderDataItem) {
-        showLoading.value = true
-        viewModelScope.launch {
-            dataSource.saveReminder(
-                ReminderDTO(
-                    reminderData.title,
-                    reminderData.description,
-                    reminderData.location,
-                    reminderData.latitude,
-                    reminderData.longitude,
-                    reminderData.id
-                )
-            )
-
-            currentId.value = reminderData.id
-            showLoading.value = false
-            showToast.value = app.getString(R.string.reminder_saved)
-        }
-    }
 
     /**
      * Validate the entered data and show error to the user if there's any invalid data
@@ -91,20 +60,47 @@ class SaveReminderViewModel(
         return true
     }
 
-    fun getReminderObject(): ReminderDataItem {
-        val title = reminderTitle.value
-        val description = reminderDescription.value
-        val location = reminderSelectedLocationStr.value
-        val latitude = latitude.value
-        val longitude = longitude.value
+    /**
+     * Clear the live data objects to start fresh next time the view model gets called
+     */
+    fun onClear() {
+        reminderTitle.value = null
+        reminderDescription.value = null
+        reminderSelectedLocationStr.value = null
+        selectedPOI.value = null
+        latitude.value = null
+        longitude.value = null
+    }
 
-        return ReminderDataItem(
-            title,
-            description,
-            location,
-            latitude,
-            longitude,
-            currentId.value ?: UUID.randomUUID().toString()
-        )
+    /**
+     * Validate the entered data then saves the reminder data to the DataSource
+     */
+    fun validateAndSaveReminder(reminderData: ReminderDataItem) {
+        if (validateEnteredData(reminderData)) {
+            saveReminder(reminderData)
+            addGeoFencingRequest.postValue(reminder)
+        }
+    }
+
+    /**
+     * Save the reminder to the data source
+     */
+    fun saveReminder(reminderData: ReminderDataItem) {
+        showLoading.value = true
+        viewModelScope.launch {
+            dataSource.saveReminder(
+                ReminderDTO(
+                    reminderData.title,
+                    reminderData.description,
+                    reminderData.location,
+                    reminderData.latitude,
+                    reminderData.longitude,
+                    reminderData.id
+                )
+            )
+            showLoading.value = false
+            showToast.value = app.getString(R.string.reminder_saved)
+            navigationCommand.value = NavigationCommand.Back
+        }
     }
 }
