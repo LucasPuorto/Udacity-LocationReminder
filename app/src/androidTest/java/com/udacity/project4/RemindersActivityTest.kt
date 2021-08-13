@@ -17,8 +17,6 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.rule.ActivityTestRule
-import androidx.test.rule.GrantPermissionRule
-import com.google.firebase.auth.FirebaseAuth
 import com.udacity.project4.authentication.AuthenticationViewModel
 import com.udacity.project4.locationreminders.ReminderViewModel
 import com.udacity.project4.locationreminders.RemindersActivity
@@ -30,13 +28,13 @@ import com.udacity.project4.locationreminders.savereminder.SaveReminderViewModel
 import com.udacity.project4.util.DataBindingIdlingResource
 import com.udacity.project4.util.monitorActivity
 import com.udacity.project4.utils.EspressoIdlingResource
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
@@ -53,7 +51,9 @@ class RemindersActivityTest : AutoCloseKoinTest() {
 
     private lateinit var repository: ReminderDataSource
     private lateinit var appContext: Application
-    private lateinit var authentication: FirebaseAuth
+
+    private lateinit var activity: RemindersActivity
+
     private val dataBindingIdlingResource = DataBindingIdlingResource()
 
     @get:Rule
@@ -62,28 +62,18 @@ class RemindersActivityTest : AutoCloseKoinTest() {
     @get:Rule
     val activityTestRule = ActivityTestRule(RemindersActivity::class.java)
 
-    @get:Rule
-    val fineLocationPermission: GrantPermissionRule = GrantPermissionRule.grant(android.Manifest.permission.ACCESS_FINE_LOCATION)
-
-    @get:Rule
-    val backgroundLocationPermission: GrantPermissionRule = GrantPermissionRule.grant(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-
-    /**
-     * As we use Koin as a Service Locator Library to develop our code, we'll also use Koin to test our code.
-     * at this step we will initialize Koin related code to be able to use it in out testing.
-     */
     @Before
     fun init() {
-        stopKoin()//stop the original app koin
+        stopKoin() //stop the original app koin
         appContext = getApplicationContext()
         val myModule = module {
+            viewModel { AuthenticationViewModel() }
+            viewModel { ReminderViewModel() }
             viewModel {
                 RemindersListViewModel(
                     appContext,
                     get() as ReminderDataSource
                 )
-                ReminderViewModel()
-                AuthenticationViewModel()
             }
             single {
                 SaveReminderViewModel(
@@ -91,15 +81,17 @@ class RemindersActivityTest : AutoCloseKoinTest() {
                     get() as ReminderDataSource
                 )
             }
-            single { RemindersLocalRepository(get()) as ReminderDataSource }
+            single<ReminderDataSource> { RemindersLocalRepository(get()) }
             single { LocalDB.createRemindersDao(appContext) }
         }
         //declare a new koin module
         startKoin {
+            androidContext(appContext)
             modules(listOf(myModule))
         }
         //Get our real repository
         repository = get()
+        activity = activityTestRule.activity
 
         //clear the data to start fresh
         runBlocking {
@@ -111,19 +103,17 @@ class RemindersActivityTest : AutoCloseKoinTest() {
     fun setupActivity() {
         IdlingRegistry.getInstance().register(EspressoIdlingResource.countingIdlingResource)
         IdlingRegistry.getInstance().register(dataBindingIdlingResource)
-        authentication = FirebaseAuth.getInstance()
-        authentication.signOut()
-        runBlocking {
-            authentication.signInWithEmailAndPassword("lucaspuoto@gmail.com", "123456")
-            //Added this line, Otherwise, application is checking login screen.
-            delay(2000)
-        }
     }
 
     @After
     fun removeActivity() {
         IdlingRegistry.getInstance().unregister(EspressoIdlingResource.countingIdlingResource)
         IdlingRegistry.getInstance().unregister(dataBindingIdlingResource)
+    }
+
+    @After
+    fun tearDown() {
+        stopKoin()
     }
 
     @Test
