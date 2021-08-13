@@ -39,6 +39,11 @@ android {
         dataBinding true
     }
 
+    testOptions.unitTests {
+        includeAndroidResources = true
+        returnDefaultValues = true
+    }
+
     packagingOptions {
         // for JNA and JNA-platform
         exclude "META-INF/AL2.0"
